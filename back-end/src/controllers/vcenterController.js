@@ -59,32 +59,12 @@ async function getAllVmsWithClusterInfo(req, res) {
         ...vm,
         vm_uid: vmUid,
         creation_date: vm.creation_date || vm.create_time || vm.creation_time || vm.identity?.create_time || null,
+        hasChangesToday: false,
       }
     })
 
-    // determine VM UIDs
-    const vmUidList = vms.map(vm => vm.vm_uid).filter(Boolean)
-
-    // get batch list of vm_uids changed today for this vCenter
-    let changedVmUids = []
-    try {
-      changedVmUids = await vmDiffService.getVmsChangedToday(vmUidList, vcenterId)
-    } catch (e) {
-      changedVmUids = []
-    }
-
-    // enrich with hasChangesToday
-    const changedSet = new Set(changedVmUids)
-    vms = vms.map(vm => {
-      vm.hasChangesToday = changedSet.has(vm.vm_uid)
-      return vm
-    })
-
-    // sort: modified today first, then by creation date desc
+    // sort by creation date desc only (hasChangesToday will be added by frontend)
     vms = vms.sort((a, b) => {
-      if ((a.hasChangesToday ? 1 : 0) !== (b.hasChangesToday ? 1 : 0)) {
-        return (b.hasChangesToday ? 1 : 0) - (a.hasChangesToday ? 1 : 0)
-      }
       return parseDate(b.creation_date) - parseDate(a.creation_date)
     })
 
@@ -118,10 +98,28 @@ async function getInventory(req, res) {
   }
 }
 
+async function getVmsChangedToday(req, res) {
+  try {
+    const vcenterId = req.params.vcenterId
+
+    // récupérer tous les VMs du vCenter
+    const vms = await vcenterService.getAllVmsWithClusterInfo(req.authSession, vcenterId)
+    const vmUidList = vms.map(vm => vm.vm || vm.id || vm.name).filter(Boolean)
+
+    // récupérer juste les vm_uids modifiées aujourd'hui
+    const changedVmUids = await vmDiffService.getVmsChangedToday(vmUidList, vcenterId)
+
+    res.json({ success: true, value: changedVmUids })
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message || 'Erreur lors de la récupération des VMs modifiées' })
+  }
+}
+
 module.exports = {
   getVcenters,
   getClusters,
   getAllVmsWithClusterInfo,
   getVmStorage,
   getInventory,
+  getVmsChangedToday,
 }

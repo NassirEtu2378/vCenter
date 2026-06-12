@@ -30,8 +30,7 @@ function normalizeValue(value, isNumeric = false) {
 function compareSnapshots(oldSnap, newSnap) {
   const fields = [
     { key: 'cpu', label: 'CPU', numeric: true },
-    { key: 'memory_mb', label: 'Mémoire (MiB)', numeric: true },
-    { key: 'os', label: 'OS', numeric: false },
+    { key: 'memory_mb', label: 'Mémoire (Mo)', numeric: true },
     { key: 'storage_gb', label: 'Stockage (GB)', numeric: true },
     { key: 'cluster_name', label: 'Cluster', numeric: false },
     { key: 'name', label: 'Nom', numeric: false },
@@ -104,7 +103,7 @@ async function getChangeHistory(vmUid, vcenterId = null) {
     }
   }
 
-  // most recent changes first
+  
   history.sort((a, b) => new Date(b.date) - new Date(a.date))
   return history
 }
@@ -113,31 +112,32 @@ async function getVmsChangedToday(vmUids = [], vcenterId = null) {
   if (!Array.isArray(vmUids) || vmUids.length === 0 || !vcenterId) return []
 
   const dbVcenterId = await snapshotService.resolveVcenterDbId(vcenterId)
-  const result = await db.query(
-    `
-    WITH ranked AS (
-      SELECT vm_uid, snapshot_date, cpu, memory_mb, storage_gb, os, cluster_name, name,
-        ROW_NUMBER() OVER (PARTITION BY vm_uid ORDER BY snapshot_date DESC) as rn
+  const result = await db.query(`
+    WITH latest_today AS (
+      SELECT DISTINCT ON (vm_uid) vm_uid, snapshot_date, cpu, memory_mb, storage_gb, cluster_name, name
       FROM vm_snapshot
       WHERE vm_uid = ANY($1::text[])
         AND vcenter_id = $2
+        AND snapshot_date::date = current_date
+      ORDER BY vm_uid, snapshot_date DESC
     ),
-    latest AS (SELECT * FROM ranked WHERE rn = 1),
-    prev AS (SELECT * FROM ranked WHERE rn = 2)
-    SELECT l.vm_uid
-    FROM latest l
-    LEFT JOIN prev p ON l.vm_uid = p.vm_uid
+    latest_before_today AS (
+      SELECT DISTINCT ON (vm_uid) vm_uid, snapshot_date, cpu, memory_mb, storage_gb, cluster_name, name
+      FROM vm_snapshot
+      WHERE vm_uid = ANY($1::text[])
+        AND vcenter_id = $2
+        AND snapshot_date::date < current_date
+      ORDER BY vm_uid, snapshot_date DESC
+    )
+    SELECT t.vm_uid
+    FROM latest_today t
+    JOIN latest_before_today p ON p.vm_uid = t.vm_uid
     WHERE (
-      l.snapshot_date::date = current_date
-      AND p.vm_uid IS NOT NULL
-      AND (
-        COALESCE(l.cpu::text, '') <> COALESCE(p.cpu::text, '') OR
-        COALESCE(l.memory_mb::text, '') <> COALESCE(p.memory_mb::text, '') OR
-        COALESCE(l.storage_gb::text, '') <> COALESCE(p.storage_gb::text, '') OR
-        COALESCE(l.os, '') <> COALESCE(p.os, '') OR
-        COALESCE(l.cluster_name, '') <> COALESCE(p.cluster_name, '') OR
-        COALESCE(l.name, '') <> COALESCE(p.name, '')
-      )
+      COALESCE(t.cpu::text, '') <> COALESCE(p.cpu::text, '') OR
+      COALESCE(t.memory_mb::text, '') <> COALESCE(p.memory_mb::text, '') OR
+      COALESCE(t.storage_gb::text, '') <> COALESCE(p.storage_gb::text, '') OR
+      COALESCE(t.cluster_name, '') <> COALESCE(p.cluster_name, '') OR
+      COALESCE(t.name, '') <> COALESCE(p.name, '')
     )
     `,
     [vmUids, dbVcenterId]

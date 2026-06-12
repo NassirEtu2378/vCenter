@@ -4,7 +4,7 @@ import ClusterFilter from '@/components/ClusterFilter.vue'
 import FolderFilter from '@/components/FolderFilter.vue'
 import DateFilter from '@/components/DateFilter.vue'
 import ExportPanel from '@/components/ExportPanel.vue'
-import { getVcenterList, getVcenterClusters, getAllVmsWithClusterInfo, getVmStorageGb, getVmDiff } from '../api/vcenter'
+import { getVcenterList, getVcenterClusters, getAllVmsWithClusterInfo, getVmStorageGb, getVmDiff, getVmsChangedToday } from '../api/vcenter'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/vcenter'
 
@@ -31,6 +31,11 @@ const pageSize = ref(20)
 const vmStorage = ref({})
 const vmStorageLoading = ref({})
 const router = useRouter()
+const clustersCache = new Map()
+const vmsCache = new Map()
+const vmStorageCache = new Map()
+let currentVcenterRequestId = 0
+const getVmStorageKey = (vcenterId, vmId) => `${vcenterId}||${vmId}`
 
 const loadVcenters = async () => {
   isLoadingVcenters.value = true
@@ -53,7 +58,7 @@ const getVmClusterName = (vm) => {
   return clusterMapMemo.value.get(clusterId) ?? vm.cluster_name ?? clusterId ?? '-'
 }
 
-const loadVcenterVms = async () => {
+const loadVcenterVms = async (requestId) => {
   if (!selectedVcenter.value) {
     allVms.value = []
     vmStorage.value = {}
@@ -61,27 +66,92 @@ const loadVcenterVms = async () => {
     return
   }
 
+  const vcenterId = selectedVcenter.value.id
   isLoadingVms.value = true
   errorMessage.value = ''
 
   try {
-    allVms.value = await getAllVmsWithClusterInfo(selectedVcenter.value.id)
+    if (requestId !== currentVcenterRequestId) return
 
+    if (vmsCache.has(vcenterId)) {
+      allVms.value = vmsCache.get(vcenterId).map((vm) => ({ ...vm }))
+    } else {
+      const vms = await getAllVmsWithClusterInfo(vcenterId)
+      if (requestId !== currentVcenterRequestId) return
+      vmsCache.set(vcenterId, vms)
+      allVms.value = vms.map((vm) => ({ ...vm }))
+    }
+
+    if (requestId !== currentVcenterRequestId) return
     currentPage.value = 1
-    vmStorage.value = {}
+    
+    if (vmStorageCache.has(vcenterId)) {
+      vmStorage.value = { ...vmStorageCache.get(vcenterId) }
+    } else {
+      vmStorage.value = {}
+    }
     vmStorageLoading.value = {}
-    // reset history/modal state
     activeVmHistory.value = null
     showBellModal.value = false
+
+    getVmsChangedToday(vcenterId)
+      .then((changedUids) => {
+        if (requestId !== currentVcenterRequestId || selectedVcenter.value?.id !== vcenterId) return
+        const changedSet = new Set(changedUids)
+        allVms.value = allVms.value.map((vm) => {
+          vm.hasChangesToday = changedSet.has(vm.vm_uid)
+          return vm
+        })
+        allVms.value.sort((a, b) => {
+          if ((a.hasChangesToday ? 1 : 0) !== (b.hasChangesToday ? 1 : 0)) {
+            return (b.hasChangesToday ? 1 : 0) - (a.hasChangesToday ? 1 : 0)
+          }
+          return parseDate(b.creation_date) - parseDate(a.creation_date)
+        })
+        if (vmsCache.has(vcenterId)) {
+          vmsCache.set(vcenterId, allVms.value.map((vm) => ({ ...vm })))
+        }
+      })
+      .catch((e) => {
+        console.error('Error loading changed VMs:', e)
+      })
   } catch (error) {
+    if (requestId !== currentVcenterRequestId) return
     errorMessage.value =
       'Impossible de récupérer les machines virtuelles. Veuillez vérifier votre session vCenter.'
     allVms.value = []
-    vmStorage.value = {}
+    if (vmStorageCache.has(vcenterId)) {
+      vmStorage.value = { ...vmStorageCache.get(vcenterId) }
+    } else {
+      vmStorage.value = {}
+    }
     vmStorageLoading.value = {}
   } finally {
+    if (requestId !== currentVcenterRequestId) return
     isLoadingVms.value = false
   }
+}
+
+function parseDate(str) {
+  if (!str || str === '01/01/1970 00:00:00') return new Date(0)
+  if (str instanceof Date) return str
+  if (typeof str !== 'string') {
+    const parsed = new Date(str)
+    return Number.isNaN(parsed.getTime()) ? new Date(0) : parsed
+  }
+
+  const [date, time = '00:00:00'] = str.split(' ')
+  const [day, month, year] = date.split('/')
+
+  if (day && month && year) {
+    const parsed = new Date(`${year}-${month}-${day}T${time}`)
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed
+    }
+  }
+
+  const fallback = new Date(str)
+  return Number.isNaN(fallback.getTime()) ? new Date(0) : fallback
 }
 
 const viewVmHistory = async (vm) => {
@@ -109,29 +179,40 @@ const viewVmHistory = async (vm) => {
   }
 }
 
-const loadClusters = async () => {
+const loadClusters = async (requestId) => {
   if (!selectedVcenter.value) {
     clusters.value = []
     selectedCluster.value = null
     return
   }
 
+  const vcenterId = selectedVcenter.value.id
   isLoadingClusters.value = true
   clusterError.value = ''
 
   try {
-    clusters.value = await getVcenterClusters(selectedVcenter.value.id)
+    if (requestId !== currentVcenterRequestId) return
+
+    if (clustersCache.has(vcenterId)) {
+      clusters.value = clustersCache.get(vcenterId)
+    } else {
+      const fetchedClusters = await getVcenterClusters(vcenterId)
+      if (requestId !== currentVcenterRequestId) return
+      clustersCache.set(vcenterId, fetchedClusters)
+      clusters.value = fetchedClusters
+    }
     selectedCluster.value = null
   } catch (error) {
+    if (requestId !== currentVcenterRequestId) return
     clusterError.value = 'Impossible de charger les clusters.'
     clusters.value = []
     selectedCluster.value = null
   } finally {
+    if (requestId !== currentVcenterRequestId) return
     isLoadingClusters.value = false
   }
 
-  // Charger les VMs indépendamment
-  await loadVcenterVms()
+  await loadVcenterVms(requestId)
 }
 
 const selectVcenter = async (vcenter) => {
@@ -139,7 +220,17 @@ const selectVcenter = async (vcenter) => {
   selectedFolder.value = null
   dateFrom.value = ''
   dateTo.value = ''
-  await loadClusters()
+  clusters.value = []
+  allVms.value = []
+  if (vmStorageCache.has(vcenter.id)) {
+    vmStorage.value = { ...vmStorageCache.get(vcenter.id) }
+  } else {
+    vmStorage.value = {}
+  }
+  vmStorageLoading.value = {}
+  currentVcenterRequestId += 1
+  const requestId = currentVcenterRequestId
+  await loadClusters(requestId)
 }
 
 const resetFilters = () => {
@@ -367,27 +458,43 @@ const fetchVmStorage = async (vmId) => {
     return 0
   }
 
-  if (vmStorage.value[vmId] != null) {
-    return vmStorage.value[vmId]
+  const vcenterId = selectedVcenter.value.id
+  const storageKey = getVmStorageKey(vcenterId, vmId)
+  if (vmStorage.value[storageKey] != null) {
+    return vmStorage.value[storageKey]
   }
 
-  vmStorageLoading.value[vmId] = true
+  vmStorageLoading.value[storageKey] = true
   try {
-    const storageGb = await getVmStorageGb(vmId, selectedVcenter.value.id)
-    vmStorage.value[vmId] = storageGb
+    const storageGb = await getVmStorageGb(vmId, vcenterId)
+    if (!selectedVcenter.value || selectedVcenter.value.id !== vcenterId) {
+      return 0
+    }
+    vmStorage.value[storageKey] = storageGb
+    if (!vmStorageCache.has(vcenterId)) {
+      vmStorageCache.set(vcenterId, {})
+    }
+    vmStorageCache.get(vcenterId)[storageKey] = storageGb
     return storageGb
   } catch (error) {
-    vmStorage.value[vmId] = 0
+    if (!selectedVcenter.value || selectedVcenter.value.id !== vcenterId) {
+      return 0
+    }
+    vmStorage.value[storageKey] = 0
     return 0
   } finally {
-    vmStorageLoading.value[vmId] = false
+    if (!selectedVcenter.value || selectedVcenter.value.id !== vcenterId) {
+      return
+    }
+    vmStorageLoading.value[storageKey] = false
   }
 }
 
 const loadStorageForPage = async () => {
   const vmsToLoad = paginatedVms.value.filter((vm) => {
     const vmId = vm.vm || vm.name
-    return vmStorage.value[vmId] === undefined
+    const storageKey = getVmStorageKey(selectedVcenter.value?.id, vmId)
+    return vmStorage.value[storageKey] === undefined
   })
 
   await Promise.all(
@@ -414,11 +521,12 @@ watch(
 
 const getStorageLabel = (vm) => {
   const vmId = vm.vm || vm.name
-  if (vmStorageLoading.value[vmId]) {
+  const storageKey = getVmStorageKey(selectedVcenter.value?.id, vmId)
+  if (vmStorageLoading.value[storageKey]) {
     return '...'
   }
 
-  return vmStorage.value[vmId] != null ? vmStorage.value[vmId] : '-'
+  return vmStorage.value[storageKey] != null ? vmStorage.value[storageKey] : '-'
 }
 
 const isFirstPage = computed(() => currentPage.value === 1)
@@ -759,7 +867,7 @@ onMounted(() => {
     margin-top: 1.25rem;
     padding: 1.25rem;
     border-radius: 16px;
-    background: #f8fafc;
+    background: #f0f7f3;
   }
 
   .export-panel .filter-header {

@@ -100,15 +100,16 @@ const emit = defineEmits(['update:exportFormat', 'update:exportScope', 'export']
   width: auto;
   min-width: 120px;
   height: 50px;
+  background-color: #43cf79;
+  border: none;
 }
 
 .export-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  background: #d3d6dd;
+  background:darkgreen;
 }
 
 .export-button:disabled {
-  background: #94a3b8;
+  background: #43cf7979;
   cursor: not-allowed;
 }
 </style>

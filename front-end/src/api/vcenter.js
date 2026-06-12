@@ -99,6 +99,13 @@ export async function getAllVmsWithClusterInfo(vcenterId = 'default') {
   }
 }
 
+export async function getVmsChangedToday(vcenterId = 'default') {
+  const response = await api.get(`/vcenters/${encodeURIComponent(vcenterId)}/vms-changed-today`, {
+    headers: authHeaders(),
+  })
+  return response.data?.value ?? []
+}
+
 export async function getVmDiff(vmUid, vcenterId = 'default') {
   const response = await api.get(`/vm/${encodeURIComponent(vmUid)}/diff`, {
     headers: authHeaders(),

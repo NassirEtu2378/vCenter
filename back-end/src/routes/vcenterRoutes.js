@@ -7,5 +7,6 @@ router.get('/', authMiddleware.requireAuth, vcenterController.getVcenters)
 router.get('/:vcenterId/inventory', authMiddleware.requireAuth, vcenterController.getInventory)
 router.get('/:vcenterId/clusters', authMiddleware.requireAuth, vcenterController.getClusters)
 router.get('/:vcenterId/all-vms-with-cluster-info', authMiddleware.requireAuth, vcenterController.getAllVmsWithClusterInfo)
+router.get('/:vcenterId/vms-changed-today', authMiddleware.requireAuth, vcenterController.getVmsChangedToday)
 router.get('/:vcenterId/vm-storage/:vmId', authMiddleware.requireAuth, vcenterController.getVmStorage)
 module.exports = router
