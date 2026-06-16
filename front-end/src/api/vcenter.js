@@ -113,3 +113,11 @@ export async function getVmDiff(vmUid, vcenterId = 'default') {
   })
   return response.data ?? { vmUid, hasChangesToday: false, history: [] }
 }
+
+export async function getVmHistory(vmUid, vcenterId = 'default') {
+  const response = await api.get(`/vm/${encodeURIComponent(vmUid)}/history`, {
+    headers: authHeaders(),
+    params: { vcenterId },
+  })
+  return response.data ?? { history: [] }
+}

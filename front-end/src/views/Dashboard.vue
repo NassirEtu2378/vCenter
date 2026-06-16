@@ -4,7 +4,8 @@ import ClusterFilter from '@/components/ClusterFilter.vue'
 import FolderFilter from '@/components/FolderFilter.vue'
 import DateFilter from '@/components/DateFilter.vue'
 import ExportPanel from '@/components/ExportPanel.vue'
-import { getVcenterList, getVcenterClusters, getAllVmsWithClusterInfo, getVmStorageGb, getVmDiff, getVmsChangedToday } from '../api/vcenter'
+import ModalWindow from '@/components/ModalWindow.vue'
+import { getVcenterList, getVcenterClusters, getAllVmsWithClusterInfo, getVmStorageGb, getVmDiff, getVmsChangedToday, getVmHistory } from '../api/vcenter'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/vcenter'
 
@@ -36,6 +37,9 @@ const vmsCache = new Map()
 const vmStorageCache = new Map()
 let currentVcenterRequestId = 0
 const getVmStorageKey = (vcenterId, vmId) => `${vcenterId}||${vmId}`
+const getVmUid = (vm) => vm?.vm_uid || vm?.vm || vm?.id || vm?.name || ''
+const showFullHistoryModal = ref(false)
+const fullHistory = ref([])
 
 const loadVcenters = async () => {
   isLoadingVcenters.value = true
@@ -155,7 +159,7 @@ function parseDate(str) {
 }
 
 const viewVmHistory = async (vm) => {
-  const vmUid = vm.vm || vm.id || vm.name
+  const vmUid = getVmUid(vm)
   if (!vmUid) return
 
   showBellModal.value = true
@@ -492,14 +496,14 @@ const fetchVmStorage = async (vmId) => {
 
 const loadStorageForPage = async () => {
   const vmsToLoad = paginatedVms.value.filter((vm) => {
-    const vmId = vm.vm || vm.name
+    const vmId = getVmUid(vm)
     const storageKey = getVmStorageKey(selectedVcenter.value?.id, vmId)
     return vmStorage.value[storageKey] === undefined
   })
 
   await Promise.all(
     vmsToLoad.map((vm) => {
-      const vmId = vm.vm || vm.name
+      const vmId = getVmUid(vm)
       return fetchVmStorage(vmId)
     }),
   )
@@ -507,7 +511,7 @@ const loadStorageForPage = async () => {
 
 let storageLoadTimeout
 watch(
-  () => paginatedVms.value.map((vm) => vm.vm || vm.name),
+  () => paginatedVms.value.map((vm) => getVmUid(vm)),
   () => {
     if (hasVms.value) {
       clearTimeout(storageLoadTimeout)
@@ -520,7 +524,7 @@ watch(
 )
 
 const getStorageLabel = (vm) => {
-  const vmId = vm.vm || vm.name
+  const vmId = getVmUid(vm)
   const storageKey = getVmStorageKey(selectedVcenter.value?.id, vmId)
   if (vmStorageLoading.value[storageKey]) {
     return '...'
@@ -535,6 +539,24 @@ const isLastPage = computed(() => currentPage.value === pageCount.value)
 const goToPage = (page) => {
   if (page >= 1 && page <= pageCount.value) {
     currentPage.value = page
+  }
+}
+
+const openFullHistory = async (vmUid) => {
+  try {
+    const res = await getVmHistory(vmUid, selectedVcenter.value.id)
+    const rows = Array.isArray(res) ? res : (res.value || res.history || [])
+    fullHistory.value = rows.map((item) => ({
+      ...item,
+      date: item.date || item.change_date,
+      modifications:
+        item.modifications ||
+        item.history_text ||
+        `${item.libelle || ''}${item.old_value != null || item.new_value != null ? `: ${item.old_value ?? ''} → ${item.new_value ?? ''}` : ''}`,
+    }))
+    showFullHistoryModal.value = true
+  } catch (e) {
+    console.error(e)
   }
 }
 
@@ -646,7 +668,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="vm in paginatedVms" :key="vm.vm || vm.name">
+              <tr v-for="vm in paginatedVms" :key="getVmUid(vm)">
                 <td>
                   <div class="vm-name-cell">
                     <span>{{ vm.name || vm.vm || '-' }}</span>
@@ -696,368 +718,77 @@ onMounted(() => {
         </div>
       </main>
     </div>
-    <div v-if="showBellModal" class="modal-overlay" @click.self="showBellModal = false">
-      <div class="modal-panel">
-        <h3>Modifications de {{ activeVmHistory?.vm || activeVmHistory?.vmUid }}</h3>
-        <div v-if="isLoadingHistory" class="panel-empty">Chargement…</div>
-        <div v-else>
-          <div v-if="!activeVmHistory || !activeVmHistory.history || activeVmHistory.history.length === 0" class="panel-empty">
-            Aucune modification enregistrée pour cette VM aujourd'hui.
-          </div>
-          <ul v-else class="history-list">
-            <li v-for="h in activeVmHistory.history" :key="h.date + (h.modifications || '')">
-              <strong>{{ new Date(h.date).toLocaleString() }}:</strong> {{ h.modifications }}
-            </li>
-          </ul>
+    <ModalWindow
+      :visible="showBellModal"
+      :title="`Modifications de ${activeVmHistory?.vm || activeVmHistory?.vmUid}`"
+      @close="showBellModal = false"
+    >
+      <div v-if="isLoadingHistory" class="panel-empty">Chargement…</div>
+
+      <div v-else>
+        <div v-if="!activeVmHistory?.history?.length" class="panel-empty">
+          Aucune modification enregistrée pour cette VM aujourd'hui.
         </div>
 
-        <div class="modal-actions">
-          <button type="button" @click="showBellModal = false">Fermer</button>
-        </div>
+        <ul v-else class="history-list">
+          <li v-for="h in activeVmHistory.history" :key="h.date + (h.modifications || '')">
+            <strong>{{ new Date(h.date).toLocaleString() }}:</strong>
+            {{ h.modifications }}
+          </li>
+        </ul>
       </div>
-    </div>
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="historique_modal"
+          @click="openFullHistory(activeVmHistory.vmUid)"
+        >
+          Historique
+        </button>
+
+        <button
+          type="button"
+          class="fermer_modal"
+          @click="showBellModal = false"
+        >
+          Fermer
+        </button>
+      </div>
+    </ModalWindow>
+
+    <ModalWindow
+      :visible="showFullHistoryModal"
+      title="Historique complet"
+      width="min(620px, 80%)"
+      maxHeight="70vh"
+      :zIndex="70"
+      overlayClass="full-history-overlay"
+      panelClass="full-history-panel"
+      @close="showFullHistoryModal = false"
+    >
+      <div v-if="!fullHistory.length" class="panel-empty">
+        Aucun historique disponible.
+      </div>
+
+      <ul v-else class="history-list">
+        <li v-for="h in fullHistory" :key="h.date + (h.modifications || '')">
+          <strong>{{ new Date(h.date).toLocaleString() }}:</strong>
+          {{ h.modifications }}
+        </li>
+      </ul>
+
+      <div class="modal-actions">
+        <button
+          type="button"
+          class="fermer_modal"
+          @click="showFullHistoryModal = false"
+        >
+          Fermer
+        </button>
+      </div>
+    </ModalWindow>
   </section>
 </template>
 
-<style scoped>
-.dashboard-page {
-  padding: 2rem;
-  font-family: 'Poppins', sans-serif;
-  font-size: 15px;
-}
-
-.dashboard-hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 2rem;
-  margin-bottom: 1.5rem;
-}
-
-.hero-content {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.hero-content h1 {
-  font-size: 2rem;
-  margin-bottom: 0.25rem;
-}
-
-.hero-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1rem;
-  min-width: 240px;
-}
-
-.logout-wrapper {
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.logout-button {
-  padding: 0.9rem 1.2rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  background: #ce4c4c;
-  color: #ffffff;
-  cursor: pointer;
-  font-weight: 600;
-}
-
-.logout-button:hover {
-  background: #ff0000;
-}
-
-.dashboard-grid {
-  display: grid;
-  gap: 1.5rem;
-  grid-template-columns: minmax(240px, 320px) 1fr;
-}
-
-.dashboard-sidebar {
-  display: flex;
-  flex-direction: column;
-}
-
-.panel {
-  background: #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 0 30px rgba(15, 23, 42, 0.06);
-  padding: 5px;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-
-.subtitle {
-  margin: 0.35rem 0 0;
-  color: #627d98;
-}
-
-.cluster_label{
-  font-size: medium;
-}
-
-.status-pill {
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  background: #eff6ff;
-  color: #2563eb;
-  font-size: 0.9rem;
-  white-space: nowrap;
-}
-
-.vcenter-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.75rem;
-}
-
-.vcenter-list li {
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-}
-
-.vcenter-list li.active {
-  border-color: #3b82f6;
-  background: #eff6ff;
-}
-
-.vcenter-list button {
-  width: 100%;
-  text-align: left;
-  padding: 1rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-  .filter-select,
-  .cluster-dropdown {
-    width: 100%;
-    padding: 0.9rem 1rem;
-    border-radius: 12px;
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #102a43;
-    font-size: 0.95rem;
-    margin-top: 0.5rem;
-  }
-
-  .filter-select:focus,
-  .cluster-dropdown:focus {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
-  }
-
-  .export-panel {
-    margin-top: 1.25rem;
-    padding: 1.25rem;
-    border-radius: 16px;
-    background: #f0f7f3;
-  }
-
-  .export-panel .filter-header {
-    margin-bottom: 1rem;
-  }
-
-  .export-field {
-    display: grid;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .export-button,
-  .reset-button {
-    width: 100%;
-    padding: 0.95rem 1rem;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.95rem;
-  }
-
-  .export-button {
-    background: #129922;
-    color: #ffffff;
-    transition: transform 0.15s ease, background 0.15s ease;
-  }
-
-  .export-button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    background: #0a7c2c;
-  }
-
-  .export-button:disabled {
-    background: #94a3b8;
-    cursor: not-allowed;
-  }
-
-  .reset-button {
-    background: #e2e8f0;
-    color: #0f172a;
-    margin-top: 0.5rem;
-  }
-
-  .vm-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .vm-table th,
-  .vm-table td {
-    padding: 0.95rem 0.75rem;
-    border-bottom: 1px solid #e2e8f0;
-  }
-
-  .vm-table th {
-    font-weight: 700;
-    color: #334155;
-    text-align: left;
-  }
-
-  .vm-table tbody tr:hover {
-    background: #f8f8f8;
-  }
-
-  .valeurColonne{
-    text-align: center;
-  }
-
-  .pagination-controls {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-top: 1rem;
-    flex-wrap: wrap;
-  }
-
-  .pagination-controls button {
-    border: 1px solid #cbd5e1;
-    background: #ffffff;
-    color: #0f172a;
-    padding: 0.65rem 1rem;
-    border-radius: 12px;
-    cursor: pointer;
-  }
-
-  .pagination-controls button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .page-list {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .page-list button {
-    min-width: 2.4rem;
-    border: 1px solid #cbd5e1;
-    background: #f8fafc;
-  }
-
-  .page-list button.active {
-    background: #4e71bd;
-    border-color: #5a7dca;
-    color: #ffffff;
-  }
-
-  .panel-empty {
-    padding: 1.25rem 0;
-    color: #64748b;
-  }
-
-  .vm-name-cell {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .row-bell-button {
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 1.1rem;
-    color: #f59e0b;
-  }
-
-  .row-bell-button:hover {
-    transform: scale(1.1);
-  }
-
-  .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 60;
-  }
-
-  .modal-panel {
-    background: #fff;
-    border-radius: 12px;
-    padding: 1rem;
-    width: min(720px, 90%);
-    max-height: 80vh;
-    overflow: auto;
-  }
-
-  .history-list {
-    list-style: none;
-    padding: 0;
-    margin: 1rem 0;
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .history-list li {
-    padding: 0.85rem 1rem;
-    background: #f8fafc;
-    border-radius: 12px;
-  }
-
-  .muted {
-    color: #64748b;
-    font-size: 0.9rem;
-  }
-
-  .error-message {
-    margin-bottom: 1rem;
-    padding: 1rem;
-    color: #991b1b;
-    background: #fee2e2;
-    border-radius: 12px;
-  }
-
-  .filter-header h2,
-  .filter-label span,
-  .export-panel label {
-    color: #334155;
-    font-size: 0.95rem;
-    font-weight: 600;
-  }
-
-  :deep(.cluster-filter-panel) {
-    padding: 0;
-    margin-top: 1.5rem;
-  }
-</style>
+<style scoped src="@/assets/css/dashboard.css"></style>

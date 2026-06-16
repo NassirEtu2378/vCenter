@@ -64,48 +64,60 @@ const emit = defineEmits(['update:exportFormat', 'update:exportScope', 'export']
 .export-panel {
   display: flex;
   align-items: end;
-  gap: 1rem;
+  gap: 0.75rem;
   width: 100%;
-  padding: 1.25rem;
+  padding: 0.45rem 0.6rem;
   background: #ffffff;
 }
 
 .export-panel .filter-header {
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.export-panel .filter-header h2 {
+  font-size: 1rem;
+  margin: 0;
 }
 
 .export-field {
   display: flex;
   flex-direction: column;
-  min-width: 180px;
-  margin-bottom: 0;
+  min-width: 120px;
+}
+
+.export-field label {
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
 }
 
 .filter-select {
   width: 100%;
-  padding: 0.9rem 1rem;
+  min-width: 120px;
+  height: 35px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
   background: #ffffff;
   color: #102a43;
-  font-size: 0.95rem;
-  margin-top: 0.5rem;
 }
 
 .filter-select:focus {
   outline: none;
   border-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 0px rgba(0, 0, 0, 0.12);
 }
 
 .export-button {
-  width: auto;
   min-width: 120px;
-  height: 50px;
+  height: 35px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
   background-color: #43cf79;
   border: none;
+  border-radius: 5px;
 }
 
 .export-button:hover:not(:disabled) {
-  background:darkgreen;
+  background: darkgreen;
 }
 
 .export-button:disabled {

@@ -24,7 +24,11 @@ function normalizeValue(value, isNumeric = false) {
     const number = Number(value)
     return Number.isFinite(number) ? number : null
   }
-  return String(value).trim()
+  // Nettoyer les caractères invisibles, de contrôle, et les caractères non-ASCII suspectés d'être mal encodés
+  return String(value)
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200d\u200e\u200f\u202a-\u202e\ufeff]/g, '') // invisibles/contrôle
+    .replace(/[^\x00-\x7F]/g, '') // supprimer tout ce qui n'est pas ASCII (pour éviter les corruptions UTF-8)
+    .trim()
 }
 
 function compareSnapshots(oldSnap, newSnap) {
@@ -112,6 +116,13 @@ async function getVmsChangedToday(vmUids = [], vcenterId = null) {
   if (!Array.isArray(vmUids) || vmUids.length === 0 || !vcenterId) return []
 
   const dbVcenterId = await snapshotService.resolveVcenterDbId(vcenterId)
+
+  /*
+  Ancienne logique : comparaison entre le dernier snapshot d'aujourd'hui
+  et le dernier snapshot d'avant aujourd'hui.
+  Elle est désactivée pour forcer la comparaison entre le dernier snapshot
+  et le snapshot précédent, quel que soit leur jour de snapshot.
+
   const result = await db.query(`
     WITH latest_today AS (
       SELECT DISTINCT ON (vm_uid) vm_uid, snapshot_date, cpu, memory_mb, storage_gb, cluster_name, name
@@ -144,4 +155,49 @@ async function getVmsChangedToday(vmUids = [], vcenterId = null) {
   )
 
   return result.rows.map(r => r.vm_uid)
+  */
+
+  const result = await db.query(`
+    SELECT vm_uid, cpu, memory_mb, storage_gb, cluster_name, name, rn
+    FROM (
+      SELECT vm_uid, cpu, memory_mb, storage_gb, cluster_name, name,
+        ROW_NUMBER() OVER (PARTITION BY vm_uid ORDER BY snapshot_date DESC) AS rn
+      FROM vm_snapshot
+      WHERE vm_uid = ANY($1::text[])
+        AND vcenter_id = $2
+    ) t
+    WHERE rn <= 2
+    ORDER BY vm_uid, rn
+  `,
+  [vmUids, dbVcenterId])
+
+  const snapshotsByVm = new Map()
+  for (const row of result.rows) {
+    if (!snapshotsByVm.has(row.vm_uid)) {
+      snapshotsByVm.set(row.vm_uid, [])
+    }
+    snapshotsByVm.get(row.vm_uid).push(row)
+  }
+
+  const changedVmUids = []
+  for (const [vmUid, snaps] of snapshotsByVm.entries()) {
+    if (snaps.length < 2) continue
+
+    const [latest, previous] = snaps
+    const changed = [
+      { key: 'cpu', numeric: true },
+      { key: 'memory_mb', numeric: true },
+      { key: 'storage_gb', numeric: true },
+      { key: 'cluster_name', numeric: false },
+      { key: 'name', numeric: false },
+    ].some(({ key, numeric }) => {
+      return normalizeValue(latest[key], numeric) !== normalizeValue(previous[key], numeric)
+    })
+
+    if (changed) {
+      changedVmUids.push(vmUid)
+    }
+  }
+
+  return changedVmUids
 }

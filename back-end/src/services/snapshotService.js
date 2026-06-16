@@ -5,7 +5,8 @@ function cleanString(value) {
   if (value == null) return null
 
   return String(value)
-    .replace(/[\u200e\u200f\u202a-\u202e]/g, '') // caractères invisibles
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200d\u200e\u200f\u202a-\u202e\ufeff]/g, '') // invisibles/contrôle
+    .replace(/[^\x00-\x7F]/g, '') // supprimer non-ASCII
     .trim()
 }
 
@@ -38,7 +39,7 @@ async function resolveVcenterDbId(vcenterId) {
   return insertResult.rows[0].id
 }
 
-async function saveSnapshot(vm, vcenterId, storageGb = null) {
+async function saveSnapshot(vm, vcenterId, storageGb = null, snapshotDate = null) {
   const vmId = vm.vm || vm.id || vm.name
 
   // ❌ sécurité : on ignore les VM invalides
@@ -52,9 +53,9 @@ async function saveSnapshot(vm, vcenterId, storageGb = null) {
   const query = `
     INSERT INTO vm_snapshot (
       vm_uid, vcenter_id, name, os, cluster_name,
-      cpu, memory_mb, storage_gb, creation_date
+      cpu, memory_mb, storage_gb, creation_date${snapshotDate ? ', snapshot_date' : ''}
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9${snapshotDate ? ', $10' : ''})
   `
 
   const memoryMb =
@@ -71,22 +72,61 @@ async function saveSnapshot(vm, vcenterId, storageGb = null) {
     vm.storage ??
     null
 
+  const name = cleanString(vm.name)
+  const os = cleanString(vm.os)
+  const clusterName = cleanString(vm.cluster_name)
+  const creationDate = vm.creation_date ?? null
+
+  if (snapshotDate) {
+    const latestSnapshot = await getLatestSnapshot(vmId, dbVcenterId)
+    if (
+      latestSnapshot &&
+      latestSnapshot.snapshot_date &&
+      new Date(latestSnapshot.snapshot_date).getTime() === new Date(snapshotDate).getTime()
+    ) {
+      return
+    }
+  }
+
   const values = [
     vmId,
     dbVcenterId,
-    cleanString(vm.name),
-    cleanString(vm.os),
-    cleanString(vm.cluster_name),
+    name,
+    os,
+    clusterName,
     cpu,
     memoryMb,
     storage,
-    vm.creation_date ?? null,
+    creationDate,
   ]
 
+  if (snapshotDate) {
+    values.push(snapshotDate)
+  }
+
   await db.query(query, values)
+}
+
+async function getLatestSnapshot(vmUid, vcenterId) {
+  const dbVcenterId = await resolveVcenterDbId(vcenterId)
+
+  const result = await db.query(
+    `
+    SELECT *
+    FROM vm_snapshot
+    WHERE vm_uid = $1
+      AND vcenter_id = $2
+    ORDER BY snapshot_date DESC
+    LIMIT 1
+    `,
+    [vmUid, dbVcenterId]
+  )
+
+  return result.rows[0] || null
 }
 
 module.exports = {
   saveSnapshot,
   resolveVcenterDbId,
+  getLatestSnapshot
 }

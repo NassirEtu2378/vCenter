@@ -1,0 +1,373 @@
+.dashboard-page {
+  padding: 2rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 15px;
+}
+
+.dashboard-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hero-content h1 {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+  min-width: 240px;
+}
+
+.logout-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.logout-button {
+  padding: 0.9rem 1.2rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ce4c4c;
+  color: #ffffff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.logout-button:hover {
+  background: #ff0000;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+}
+
+.dashboard-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel {
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 0 30px rgba(15, 23, 42, 0.06);
+  padding: 5px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.subtitle {
+  margin: 0.35rem 0 0;
+  color: #627d98;
+}
+
+.cluster_label{
+  font-size: medium;
+}
+
+.status-pill {
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.vcenter-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.vcenter-list li {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+}
+
+.vcenter-list li.active {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.vcenter-list button {
+  width: 100%;
+  text-align: left;
+  padding: 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+  .filter-select,
+  .cluster-dropdown {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #102a43;
+    font-size: 0.95rem;
+    margin-top: 0.5rem;
+  }
+
+  .filter-select:focus,
+  .cluster-dropdown:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+
+  .export-panel {
+    margin-top: 1.25rem;
+    padding: 1.25rem;
+    border-radius: 16px;
+    background: #f0f0f0;
+    box-shadow: 0 0 30px rgba(15, 23, 42, 0.06);
+  }
+
+  .export-panel .filter-header {
+    margin-bottom: 1rem;
+  }
+
+  .export-field {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .export-button,
+  .reset-button {
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .export-button {
+    background: #129922;
+    color: #ffffff;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .export-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: #0a7c2c;
+  }
+
+  .export-button:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+  }
+
+  .reset-button {
+    background: #e2e8f0;
+    color: #0f172a;
+    margin-top: 0.5rem;
+  }
+
+  .vm-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .vm-table th,
+  .vm-table td {
+    padding: 0.95rem 0.75rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .vm-table th {
+    font-weight: 700;
+    color: #334155;
+    text-align: left;
+  }
+
+  .vm-table tbody tr:hover {
+    background: #f8f8f8;
+  }
+
+  .valeurColonne{
+    text-align: center;
+  }
+
+  .pagination-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .pagination-controls button {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+    padding: 0.65rem 1rem;
+    border-radius: 12px;
+    cursor: pointer;
+  }
+
+  .pagination-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .page-list {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .page-list button {
+    min-width: 2.4rem;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+  }
+
+  .page-list button.active {
+    background: #4e71bd;
+    border-color: #5a7dca;
+    color: #ffffff;
+  }
+
+  .panel-empty {
+    padding: 1.25rem 0;
+    color: #64748b;
+  }
+
+  .vm-name-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .row-bell-button {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: #f59e0b;
+  }
+
+  .row-bell-button:hover {
+    transform: scale(1.1);
+  }
+
+  .modal-overlay.full-history-overlay {
+    z-index: 70;
+  }
+
+  .modal-panel.full-history-panel {
+    transform: translateY(-12px);
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    gap: 1rem;
+  }
+
+  .history-btn {
+    background-color: #2563eb;
+  }
+
+  .history-btn:hover {
+    background-color: #1d4ed8;
+  }
+
+  .history-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .history-list li {
+    padding: 0.85rem 1rem;
+    background: #f8fafc;
+    border-radius: 12px;
+  }
+
+  .fermer_modal{
+    background-color: red;
+    width: 70px;
+    height: 30px;
+    border-radius: 3px;
+    color: white;
+    border: none;
+  }
+
+  .fermer_modal:hover{
+    background-color: rgba(255, 0, 0, 0.719);
+    color: white; 
+  }
+
+  .historique_modal{
+    background-color: rgb(74, 221, 111);
+    width: 70px;
+    height: 30px;
+    border-radius: 3px;
+    color: white;
+    border: none;
+  }
+
+  .historique_modal:hover{
+    background-color: rgba(86, 243, 47, 0.719);
+    color: white; 
+  }
+
+  .muted {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  .error-message {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    color: #991b1b;
+    background: #fee2e2;
+    border-radius: 12px;
+  }
+
+  .filter-header h2,
+  .filter-label span,
+  .export-panel label {
+    color: #334155;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  :deep(.cluster-filter-panel) {
+    padding: 0;
+    margin-top: 1.5rem;
+  }

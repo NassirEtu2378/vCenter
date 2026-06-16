@@ -1,5 +1,5 @@
 const vcenterService = require('../services/vcenterProxyService')
-const vmDiffService = require('../services/vmDiffService')
+const vmHistoryService = require('../services/vmHistoryService')
 
 function parseDate(str) {
   if (!str || str === '01/01/1970 00:00:00') return new Date(0)
@@ -102,12 +102,8 @@ async function getVmsChangedToday(req, res) {
   try {
     const vcenterId = req.params.vcenterId
 
-    // récupérer tous les VMs du vCenter
-    const vms = await vcenterService.getAllVmsWithClusterInfo(req.authSession, vcenterId)
-    const vmUidList = vms.map(vm => vm.vm || vm.id || vm.name).filter(Boolean)
-
-    // récupérer juste les vm_uids modifiées aujourd'hui
-    const changedVmUids = await vmDiffService.getVmsChangedToday(vmUidList, vcenterId)
+    const todayChanges = await vmHistoryService.getTodayChanges(vcenterId)
+    const changedVmUids = Array.from(new Set(todayChanges.map((change) => change.vm_uid)))
 
     res.json({ success: true, value: changedVmUids })
   } catch (error) {
