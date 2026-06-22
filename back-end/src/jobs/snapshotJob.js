@@ -10,6 +10,12 @@ const db = require('../db/database')
 let isRunning = false
 
 async function cleanupOldSnapshots() {
+  const sessionMap = getActiveBackendSessions()
+  if (!sessionMap || Object.keys(sessionMap).length === 0) {
+    console.log('Aucune session active ; suppression des anciens snapshots ignorée')
+    return
+  }
+
   console.log(' ANCIENNE SNAPSHOTS (J-2) SUPPRIMÉS')
 
   try {
@@ -124,7 +130,7 @@ async function runSnapshot(vcenterId) {
 function startSnapshotJob() {
   console.log(' Snapshot commence')
 
-  cron.schedule('03 10 * * *', async () => {
+  cron.schedule('6 9 * * *', async () => {
     if (isRunning) {
       console.log('autre tache effectuee')
       return

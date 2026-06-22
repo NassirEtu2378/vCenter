@@ -60,19 +60,13 @@ VALUES
 ('vm-102', '2026-06-15 09:00:00', 'VM demarree'),
 ('vm-102', '2026-06-15 12:30:00', 'OS mis a jour');
 
-DELETE FROM vm_snapshot
-WHERE snapshot_date::date = CURRENT_DATE;
+DELETE FROM vm_snapshot WHERE snapshot_date::date = CURRENT_DATE;
 
-DELETE FROM  vm_historique_changement
-WHERE change_date::date = CURRENT_DATE;
+DELETE FROM  vm_historique_changement WHERE change_date::date = CURRENT_DATE;
 
-SELECT COUNT(*)
-FROM vm_snapshot
-WHERE snapshot_date::date = CURRENT_DATE;
+SELECT COUNT(*) FROM vm_snapshot WHERE snapshot_date::date = CURRENT_DATE;
 
 SELECT * FROM vm_snapshot WHERE name ILIKE '%';
 SELECT * FROM vm_snapshot WHERE name='';
 
-DELETE FROM vm_snapshot
-WHERE snapshot_date >= '2026-06-15 16:00:00'
-  AND snapshot_date <  '2026-06-15 17:00:00';
+DELETE FROM vm_snapshot WHERE snapshot_date >= '2026-06-15 16:00:00' AND snapshot_date <  '2026-06-15 17:00:00';
