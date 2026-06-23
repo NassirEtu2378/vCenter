@@ -34,7 +34,8 @@ const props = defineProps({
   visible: { type: Boolean, default: false },
   title: { type: String, default: '' },
   width: { type: String, default: 'min(720px, 90%)' },
-  maxHeight: { type: String, default: '80vh' },
+  height: { type: String, default: '200px' },
+  maxHeight: { type: String, default: '320px' },
   zIndex: { type: Number, default: 60 },
   closeOnOverlayClick: { type: Boolean, default: true },
   overlayClass: { type: String, default: '' },
@@ -49,6 +50,7 @@ const overlayStyle = computed(() => ({
 
 const panelStyle = computed(() => ({
   width: props.width,
+  height: props.height,
   maxHeight: props.maxHeight,
 }))
 
@@ -77,7 +79,11 @@ function handleOverlayClick() {
   background: #fff;
   border-radius: 12px;
   padding: 1rem;
-  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100px;
+  max-height: 120px;
+  overflow: hidden;
   box-shadow: 0 22px 44px rgba(0, 0, 0, 0.18);
 }
 
@@ -106,6 +112,8 @@ function handleOverlayClick() {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  overflow: auto;
+  min-height: 0;
 }
 
 .modal-overlay.full-history-overlay {
