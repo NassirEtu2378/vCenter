@@ -12,6 +12,13 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ success: false, message: 'Session invalide ou expirée' })
   }
 
+  // extend session TTL on each authenticated request
+  try {
+    vcenterService.touchBackendSession(token)
+  } catch (e) {
+    // ignore touch failures
+  }
+
   const vcenterId = req.params.vcenterId
   if (vcenterId && (!session.sessions || !session.sessions[vcenterId])) {
     return res.status(403).json({ success: false, message: 'Accès au vCenter non autorisé pour ce token' })

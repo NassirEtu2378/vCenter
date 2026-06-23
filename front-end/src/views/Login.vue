@@ -64,7 +64,6 @@ const submitLogin = async () => {
             placeholder="Entrez votre mot de passe"
           />
           </br>
-          <p class="tokenlog">v,4XFfqJdefRH"U_</p>
         </div>
 
         <button type="submit" :disabled="isLoading">

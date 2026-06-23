@@ -142,6 +142,29 @@ function getBackendSession(token) {
   return session
 }
 
+function touchBackendSession(token) {
+  if (!token) return false
+  const session = sessionStore.get(token)
+  if (!session) return false
+  if (session.expiresAt <= Date.now()) {
+    sessionStore.delete(token)
+    saveSessionStore()
+    return false
+  }
+  session.expiresAt = Date.now() + TOKEN_TTL_MS
+  session.lastTouchedAt = Date.now()
+  sessionStore.set(token, session)
+  saveSessionStore()
+  return true
+}
+
+function invalidateBackendSession(token) {
+  if (!token) return false
+  const existed = sessionStore.delete(token)
+  if (existed) saveSessionStore()
+  return existed
+}
+
 function getActiveBackendSessions() {
   cleanupExpiredSessions()
 
@@ -386,6 +409,8 @@ loadSessionStore()
 module.exports = {
   createBackendSession,
   getBackendSession,
+  touchBackendSession,
+  invalidateBackendSession,
   getActiveBackendSessions,
   getVcenterConfig,
   openVcenterSession,

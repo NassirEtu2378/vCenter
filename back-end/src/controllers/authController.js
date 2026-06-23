@@ -42,6 +42,31 @@ async function login(req, res) {
   }
 }
 
+function keepalive(req, res) {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, message: 'Token manquant' })
+  }
+  const token = authHeader.substring(7).trim()
+  const ok = vcenterService.touchBackendSession(token)
+  if (!ok) {
+    return res.status(401).json({ success: false, message: 'Session invalide ou expirée' })
+  }
+  return res.json({ success: true })
+}
+
+function invalidate(req, res) {
+  const authHeader = req.headers.authorization
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(400).json({ success: false, message: 'Token manquant' })
+  }
+  const token = authHeader.substring(7).trim()
+  vcenterService.invalidateBackendSession(token)
+  return res.json({ success: true })
+}
+
 module.exports = {
   login,
+  keepalive,
+  invalidate,
 }
