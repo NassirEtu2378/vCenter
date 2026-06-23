@@ -23,7 +23,7 @@ function runScript(name, scriptPath) {
   })
 }
 
-cron.schedule('*/30 * * * *', () => {
+cron.schedule('19 15 * * *', () => {
   console.log(' Cron lancé')
 
   runScript(

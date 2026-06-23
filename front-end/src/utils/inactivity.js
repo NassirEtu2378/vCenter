@@ -1,4 +1,4 @@
-const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000 // 15 minutes
+const DEFAULT_TIMEOUT_MS = 20 * 60 * 1000 // 15 minutes
 
 import { getAuthToken } from '@/api/sessionService'
 

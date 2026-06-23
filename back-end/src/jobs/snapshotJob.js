@@ -130,7 +130,7 @@ async function runSnapshot(vcenterId) {
 function startSnapshotJob() {
   console.log(' Snapshot commence')
 
-  cron.schedule('36< 8 * * *', async () => {
+  cron.schedule('10 0 * * *', async () => {
     if (isRunning) {
       console.log('autre tache effectuee')
       return

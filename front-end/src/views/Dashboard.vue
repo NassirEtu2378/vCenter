@@ -457,6 +457,19 @@ const formatDate = (value) => {
   return parsed.toLocaleDateString('fr-FR')
 }
 
+const formatDateTime = (value) => {
+  if (!value) {
+    return '-'
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return date.toLocaleString('fr-FR', { hour12: false })
+}
+
 const fetchVmStorage = async (vmId) => {
   if (!vmId || !selectedVcenter.value) {
     return 0
@@ -732,7 +745,7 @@ onMounted(() => {
 
         <ul v-else class="history-list">
           <li v-for="h in activeVmHistory.history" :key="h.date + (h.modifications || '')">
-            <strong>{{ new Date(h.date).toLocaleString() }}:</strong>
+            <strong>{{ formatDateTime(h.date) }}:</strong>
             {{ h.modifications }}
           </li>
         </ul>
@@ -773,7 +786,7 @@ onMounted(() => {
 
       <ul v-else class="history-list">
         <li v-for="h in fullHistory" :key="h.date + (h.modifications || '')">
-          <strong>{{ new Date(h.date).toLocaleString() }}:</strong>
+          <strong>{{ formatDateTime(h.date) }}:</strong>
           {{ h.modifications }}
         </li>
       </ul>
